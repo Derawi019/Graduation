@@ -197,19 +197,30 @@ async function translateTextRealtime() {
                 target_lang: targetLang
             })
         });
-        
-            const data = await response.json();
-            
-            if (!response.ok) {
-                if (response.status === 429) {
-                    showRealtimeStatus('Rate limit exceeded', true);
-                } else {
-                    showRealtimeStatus('Error', true);
-                }
-                setTimeout(() => hideRealtimeStatus(), 2000);
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            if (response.redirected || response.url.includes('/login')) {
+                window.location.href = '/login';
                 return;
             }
-        
+            showRealtimeStatus('Server error', true);
+            setTimeout(() => hideRealtimeStatus(), 2000);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                showRealtimeStatus('Rate limit exceeded', true);
+            } else {
+                showRealtimeStatus(data.error || 'Error', true);
+            }
+            setTimeout(() => hideRealtimeStatus(), 2000);
+            return;
+        }
+
         showResults(data);
         showRealtimeStatus('Translated!', false);
         setTimeout(() => hideRealtimeStatus(), 2000);
@@ -276,9 +287,19 @@ async function translateText() {
                 target_lang: targetLang
             })
         });
-        
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            if (response.redirected || response.url.includes('/login')) {
+                window.location.href = '/login';
+                return;
+            }
+            showError('Server error while translating');
+            return;
+        }
+
         const data = await response.json();
-        
+
         if (!response.ok) {
             // Check for rate limit error (429)
             if (response.status === 429) {
@@ -288,7 +309,7 @@ async function translateText() {
             }
             return;
         }
-        
+
         showResults(data);
     } catch (error) {
         showError('Network error: ' + error.message);
