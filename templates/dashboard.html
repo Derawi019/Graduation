@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Translation App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- User Info Header -->
+        <div class="user-header">
+            <div class="user-info">
+                {% if user.picture %}
+                    <img src="{{ user.picture }}" alt="{{ user.name }}" class="user-avatar">
+                {% else %}
+                    <div class="user-avatar-placeholder">{{ user.name[0].upper() if user.name else user.email[0].upper() }}</div>
+                {% endif %}
+                <div class="user-details">
+                    <span class="user-name">{{ user.name or user.username or user.email }}</span>
+                    <span class="user-email">{{ user.email }}</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to App</a>
+                {% if user.is_admin %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary" style="background: #e74c3c;">⚙️ Admin</a>
+                {% endif %}
+                <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout" title="Logout">Logout</a>
+            </div>
+        </div>
+        
+        <h1>📊 My Dashboard</h1>
+        <p class="subtitle">Your translation statistics and insights</p>
+        
+        <!-- Loading indicator -->
+        <div id="dashboard-loading" class="dashboard-loading">
+            <p>Loading dashboard...</p>
+        </div>
+        
+        <!-- Error message -->
+        <div id="dashboard-error" class="dashboard-error hidden">
+            <p>Failed to load dashboard data. Please try again.</p>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div id="stats-cards" class="stats-cards hidden">
+            <div class="stat-card stat-card-primary">
+                <div class="stat-icon">📝</div>
+                <div class="stat-content">
+                    <h3>Total Translations</h3>
+                    <p id="total-translations" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon">📅</div>
+                <div class="stat-content">
+                    <h3>This Month</h3>
+                    <p id="month-translations" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-info">
+                <div class="stat-icon">📆</div>
+                <div class="stat-content">
+                    <h3>This Week</h3>
+                    <p id="week-translations" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-warning">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-content">
+                    <h3>Favorites</h3>
+                    <p id="favorites-count" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-secondary">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <h3>Today</h3>
+                    <p id="today-translations" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-accent">
+                <div class="stat-icon">🔤</div>
+                <div class="stat-content">
+                    <h3>Total Characters</h3>
+                    <p id="total-characters" class="stat-number">0</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Charts Section -->
+        <div id="charts-section" class="charts-section hidden">
+            <div class="chart-container">
+                <h3>📈 Activity Timeline (Last 7 Days)</h3>
+                <canvas id="activity-chart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>🌍 Language Distribution</h3>
+                <canvas id="language-chart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Language Pairs Section -->
+        <div id="language-pairs-section" class="language-pairs-section hidden">
+            <h3>🔗 Top Language Pairs</h3>
+            <div id="language-pairs-list" class="language-pairs-list">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Additional Stats -->
+        <div id="additional-stats" class="additional-stats hidden">
+            <div class="additional-stat">
+                <span class="stat-label">Average Text Length:</span>
+                <span id="avg-text-length" class="stat-value">0</span> characters
+            </div>
+            {% if user.created_at %}
+            <div class="additional-stat">
+                <span class="stat-label">Member Since:</span>
+                <span class="stat-value">{{ user.created_at.strftime('%B %d, %Y') }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+    <!-- Include theme toggle script if it exists -->
+    <script>
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('darkTheme', isDark);
+            document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+        }
+        
+        // Load theme preference
+        if (localStorage.getItem('darkTheme') === 'true') {
+            document.body.classList.add('dark-theme');
+            document.getElementById('theme-icon').textContent = '☀️';
+        }
+    </script>
+</body>
+</html>
+

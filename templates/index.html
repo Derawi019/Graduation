@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translation App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='chatbot.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- User Info Header -->
+        <div class="user-header">
+            <div class="user-info">
+                {% if user.picture %}
+                    <img src="{{ user.picture }}" alt="{{ user.name }}" class="user-avatar">
+                {% else %}
+                    <div class="user-avatar-placeholder">{{ user.name[0].upper() if user.name else user.email[0].upper() }}</div>
+                {% endif %}
+                <div class="user-details">
+                    <span class="user-name">{{ user.name or user.username or user.email }}</span>
+                    <span class="user-email">{{ user.email }}</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-dashboard" id="dashboard-btn" title="View Dashboard" style="background: #3498db; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 500; font-size: 14px;">📊 Dashboard</a>
+                {% if user.is_admin %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-dashboard" title="Admin Dashboard" style="background: #e74c3c; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 500; font-size: 14px;">⚙️ Admin</a>
+                {% else %}
+                <!-- Debug: user.is_admin = {{ user.is_admin|default('NOT SET') }}, user id = {{ user.id }} -->
+                {% endif %}
+                <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout" title="Logout">Logout</a>
+            </div>
+        </div>
+        
+        <h1>Translation App</h1>
+        <p class="subtitle">Translate text or audio into 20+ languages</p>
+        
+        <div class="header-controls">
+            <div class="language-selector">
+                <label for="target_lang">Translate to:</label>
+                <select id="target_lang" name="target_lang" onchange="handleLanguageChange()">
+                    <option value="English">English</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Arabic">Arabic</option>
+                    <option value="German">German</option>
+                    <option value="Portuguese">Portuguese</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Russian">Russian</option>
+                    <option value="Korean">Korean</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Dutch">Dutch</option>
+                    <option value="Turkish">Turkish</option>
+                    <option value="Polish">Polish</option>
+                    <option value="Swedish">Swedish</option>
+                    <option value="Danish">Danish</option>
+                    <option value="Norwegian">Norwegian</option>
+                    <option value="Finnish">Finnish</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('text')">Type Text</button>
+            <button class="tab-button" onclick="switchTab('file')">Upload Text File</button>
+            <button class="tab-button" onclick="switchTab('audio')">Audio Input</button>
+            <button class="tab-button" onclick="switchTab('video')">🎬 Video Upload</button>
+            <button class="tab-button" onclick="switchTab('batch')">📦 Batch</button>
+            <button class="tab-button" onclick="switchTab('history')">📜 History</button>
+        </div>
+
+        <!-- Text Input Tab -->
+        <div id="text-tab" class="tab-content active">
+            <div class="realtime-control">
+                <label class="realtime-toggle">
+                    <input type="checkbox" id="realtime-toggle" onchange="toggleRealtime()">
+                    <span>⚡ Real-time Translation</span>
+                </label>
+                <span id="realtime-status" class="realtime-status hidden"></span>
+            </div>
+            <textarea id="text-input" placeholder="Enter text to translate..." oninput="handleTextInput()"></textarea>
+            <button onclick="translateText()" class="translate-btn">Translate</button>
+        </div>
+
+        <!-- File Upload Tab -->
+        <div id="file-tab" class="tab-content">
+            <div class="upload-area">
+                <input type="file" id="file-input" accept=".txt, .pdf, .docx" style="display: none;" onchange="uploadTextFile()">
+                <label for="file-input" class="upload-label">
+                    <span>📄 Click to upload .txt, .pdf, or .docx file</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Audio Input Tab -->
+        <div id="audio-tab" class="tab-content">
+            <div class="audio-controls">
+                <button id="record-btn" onclick="toggleRecording()" class="record-btn">🎤 Start Recording</button>
+                <button id="upload-audio-btn" onclick="document.getElementById('audio-input').click()" class="upload-btn">📁 Upload Audio File</button>
+                <input type="file" id="audio-input" accept="audio/*" style="display: none;" onchange="uploadAudioFile()">
+            </div>
+            <div id="recording-status" class="recording-status"></div>
+        </div>
+
+        <!-- Video Upload Tab -->
+        <div id="video-tab" class="tab-content">
+            <div class="upload-area">
+                <input type="file" id="video-input" accept="video/*" style="display: none;" onchange="uploadVideoFile()">
+                <label for="video-input" class="upload-label">
+                    <span>🎬 Click to upload video file</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Batch Translation Tab -->
+        <div id="batch-tab" class="tab-content">
+            <p class="batch-instructions">Enter multiple texts (one per line) to translate them all at once:</p>
+            <textarea id="batch-input" placeholder="Enter text 1&#10;Enter text 2&#10;Enter text 3&#10;..."></textarea>
+            <button onclick="translateBatch()" class="translate-btn">Translate All</button>
+            <div id="batch-results" class="batch-results hidden"></div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <div class="history-controls">
+                <div class="history-search-container">
+                    <input type="text" id="history-search" placeholder="🔍 Search translations..." class="history-search" oninput="filterHistory()">
+                    <button onclick="toggleFavoritesFilter()" id="favorites-filter-btn" class="favorites-filter-btn" title="Show only favorites">⭐</button>
+                </div>
+                <div class="history-actions">
+                    <button onclick="loadHistory()" class="refresh-btn">🔄 Refresh</button>
+                    <button onclick="clearHistory()" class="clear-btn">🗑️ Clear All</button>
+                </div>
+            </div>
+            <div id="history-list" class="history-list">
+                <p class="history-empty">No translations yet. Start translating to see your history!</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="results hidden">
+            <div class="result-header">
+                <h3>Translation Result</h3>
+                <button id="result-favorite-btn" onclick="toggleCurrentFavorite()" class="favorite-btn" title="Add to favorites">☆</button>
+            </div>
+            <div class="result-section">
+                <h3>Original Text</h3>
+                <p id="original-text"></p>
+                <div class="language-row">
+                    <p class="language-info">Detected Language: <span id="detected-lang"></span></p>
+                    <button onclick="speakText('original')" class="tts-btn-inline" title="Listen to original">🔊</button>
+                </div>
+            </div>
+            <div class="result-section">
+                <h3>Translated Text</h3>
+                <p id="translated-text"></p>
+                <div class="language-row">
+                    <p class="language-info">Target Language: <span id="target-lang-display"></span></p>
+                    <button onclick="speakText('translated')" class="tts-btn-inline" title="Listen to translation">🔊</button>
+                </div>
+
+<!-- زر AI Summarizer -->
+                <button id="ai-summarizer-btn" class="summarize-btn" onclick="summarizeText()">AI Summarizer</button>
+
+                <!-- أزرار Show Original Text و Show Summarized Text مع إخفائها بدايةً -->
+                <button id="show-original-btn" class="show-original-btn" onclick="showOriginalText()" style="display:none;">Show Original Text</button>
+                <button id="show-summarized-btn" class="show-original-btn" onclick="showSummarizedText()" style="display:none;">Show Summarized Text</button>
+
+                <!-- عنصر الـ Loading -->
+                <div id="loading" class="loading hidden">Summarizing...</div>
+
+
+            </div>
+            <div class="result-actions">
+                <div class="copy-buttons">
+                    <button onclick="copyOriginalText()" class="copy-original-btn">📋 Copy Original Text</button>
+                    <button onclick="copyTranslatedText()" class="copy-btn">📋 Copy Translated Text</button>
+                </div>
+                <button onclick="showStatistics()" class="stats-btn">📊 Show Statistics</button>
+                <audio id="tts-audio" class="tts-audio" controls style="display: none;"></audio>
+                <div class="export-buttons">
+                    <button onclick="exportTranslation('txt')" class="export-btn">📄 Export as TXT</button>
+                    <button onclick="exportTranslation('json')" class="export-btn">📋 Export as JSON</button>
+                    <button onclick="exportTranslation('csv')" class="export-btn">📊 Export as CSV</button>
+                    <button onclick="exportTranslation('pdf')" class="export-btn">📑 Export as PDF</button>
+                    <button onclick="exportTranslation('docx')" class="export-btn">📝 Export as DOCX</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+        <div id="loading" class="loading hidden">Translating...</div>
+    </div>
+
+    <!-- Context Chatbot -->
+    <div id="chatbot-container" class="chatbot-container hidden">
+        <div class="chatbot-header">
+            <div class="chatbot-title">
+                <span class="chatbot-icon">🤖</span>
+                <span>Context Assistant</span>
+            </div>
+            <button onclick="toggleChatbot()" class="chatbot-close" title="Close">✕</button>
+        </div>
+        <div id="chatbot-messages" class="chatbot-messages"></div>
+        <div id="chatbot-loading" class="chatbot-loading hidden">
+            <div class="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="chatbot-input-container">
+            <input type="text" id="chatbot-input" class="chatbot-input" placeholder="Ask me about this topic..." onkeypress="handleChatbotKeyPress(event)">
+            <button onclick="sendChatbotMessage()" class="chatbot-send">Send</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='chatbot.js') }}"></script>
+</body>
+</html>

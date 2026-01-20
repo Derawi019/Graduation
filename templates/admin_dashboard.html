@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Translation App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- User Info Header -->
+        <div class="user-header">
+            <div class="user-info">
+                {% if user.picture %}
+                    <img src="{{ user.picture }}" alt="{{ user.name }}" class="user-avatar">
+                {% else %}
+                    <div class="user-avatar-placeholder">{{ user.name[0].upper() if user.name else user.email[0].upper() }}</div>
+                {% endif %}
+                <div class="user-details">
+                    <span class="user-name">{{ user.name or user.username or user.email }} (Admin)</span>
+                    <span class="user-email">{{ user.email }}</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to App</a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">📊 My Dashboard</a>
+                <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout" title="Logout">Logout</a>
+            </div>
+        </div>
+        
+        <h1>⚙️ Admin Dashboard</h1>
+        <p class="subtitle">Manage users, translations, and view system statistics</p>
+        
+        <!-- Loading indicator -->
+        <div id="admin-loading" class="dashboard-loading">
+            <p>Loading admin dashboard...</p>
+        </div>
+        
+        <!-- Error message -->
+        <div id="admin-error" class="dashboard-error hidden">
+            <p>Failed to load admin dashboard data. Please try again.</p>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div id="stats-cards" class="stats-cards hidden">
+            <div class="stat-card stat-card-primary">
+                <div class="stat-icon">👥</div>
+                <div class="stat-content">
+                    <h3>Total Users</h3>
+                    <p id="total-users" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon">📝</div>
+                <div class="stat-content">
+                    <h3>Total Translations</h3>
+                    <p id="total-translations" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-info">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <h3>Verified Users</h3>
+                    <p id="verified-users" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-warning">
+                <div class="stat-icon">👤</div>
+                <div class="stat-content">
+                    <h3>Active Users (30 days)</h3>
+                    <p id="active-users" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-secondary">
+                <div class="stat-icon">📅</div>
+                <div class="stat-content">
+                    <h3>New Users (Month)</h3>
+                    <p id="new-users-month" class="stat-number">0</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-accent">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <h3>Translations (Month)</h3>
+                    <p id="translations-month" class="stat-number">0</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabs for Users and Translations -->
+        <div class="admin-tabs">
+            <button class="admin-tab-button active" onclick="switchAdminTab('overview')">📊 Overview</button>
+            <button class="admin-tab-button" onclick="switchAdminTab('users')">👥 Users</button>
+            <button class="admin-tab-button" onclick="switchAdminTab('translations')">📝 Translations</button>
+        </div>
+        
+        <!-- Overview Tab -->
+        <div id="overview-tab" class="admin-tab-content active">
+            <!-- Charts Section -->
+            <div id="charts-section" class="charts-section">
+                <div class="chart-container">
+                    <h3>📈 Activity Timeline (Last 7 Days)</h3>
+                    <canvas id="activity-chart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <h3>🌍 Language Distribution</h3>
+                    <canvas id="language-chart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <h3>🔐 Authentication Providers</h3>
+                    <canvas id="provider-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Users Tab -->
+        <div id="users-tab" class="admin-tab-content">
+            <div class="admin-section-header">
+                <h3>👥 User Management</h3>
+                <div class="admin-filters">
+                    <input type="text" id="user-search" placeholder="🔍 Search users..." class="admin-search" oninput="loadUsers()">
+                </div>
+            </div>
+            <div id="users-table-container" class="admin-table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Provider</th>
+                            <th>Verified</th>
+                            <th>Admin</th>
+                            <th>Translations</th>
+                            <th>Created</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <tr>
+                            <td colspan="9" class="loading-text">Loading users...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="admin-pagination" id="users-pagination"></div>
+        </div>
+        
+        <!-- Translations Tab -->
+        <div id="translations-tab" class="admin-tab-content">
+            <div class="admin-section-header">
+                <h3>📝 Translation Management</h3>
+                <div class="admin-filters">
+                    <input type="text" id="translation-search" placeholder="🔍 Search translations..." class="admin-search" oninput="loadTranslations()">
+                </div>
+            </div>
+            <div id="translations-table-container" class="admin-table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Original Text</th>
+                            <th>Translated Text</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="translations-table-body">
+                        <tr>
+                            <td colspan="7" class="loading-text">Loading translations...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="admin-pagination" id="translations-pagination"></div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='admin_dashboard.js') }}"></script>
+    <!-- Include theme toggle script -->
+    <script>
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('darkTheme', isDark);
+            document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+        }
+        
+        function switchAdminTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.admin-tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.admin-tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'users') {
+                loadUsers();
+            } else if (tabName === 'translations') {
+                loadTranslations();
+            }
+        }
+        
+        // Load theme preference
+        if (localStorage.getItem('darkTheme') === 'true') {
+            document.body.classList.add('dark-theme');
+            document.getElementById('theme-icon').textContent = '☀️';
+        }
+    </script>
+</body>
+</html>
+

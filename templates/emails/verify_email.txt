@@ -1,0 +1,13 @@
+Verify Your Email Address
+
+Hello {{ user.name or user.email }},
+
+Thank you for signing up for Translation App! Please verify your email address by clicking the link below:
+
+{{ verification_url }}
+
+This verification link will expire in 24 hours. If you didn't create an account, please ignore this email.
+
+---
+Translation App
+
