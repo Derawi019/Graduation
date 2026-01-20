@@ -319,6 +319,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# Ensure DB tables exist when running under gunicorn (no __main__)
+_tables_initialized = False
+
+
+@app.before_request
+def ensure_tables():
+    global _tables_initialized
+    if _tables_initialized:
+        return
+    try:
+        db.create_all()
+        _tables_initialized = True
+        app.logger.info("✅ Database tables created/verified (startup)")
+    except Exception as e:
+        app.logger.error(f"Database initialization error: {str(e)}", exc_info=True)
+
 
 # Initialize Flask-Mail
 mail = Mail(app)
