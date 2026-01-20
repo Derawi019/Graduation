@@ -21,4 +21,5 @@ gTTS==2.5.4
 transformers==4.57.6
 torch==2.6.0
 ffmpeg-python==0.2.0
+openai-whisper==20250625
 
